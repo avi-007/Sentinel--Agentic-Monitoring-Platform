@@ -1,0 +1,180 @@
+{
+  "title": "Sentinel Overview",
+  "uid": "sentinel-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "browser",
+  "tags": ["sentinel"],
+  "templating": {
+    "list": [
+      {
+        "name": "host",
+        "type": "query",
+        "label": "Host",
+        "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+        "query": "SELECT host_id AS __text, host_id AS __value FROM hosts ORDER BY 1",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": { "text": "All", "value": ["$__all"] }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU %",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", cpu_pct AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Memory %",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", mem_pct AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latency (ms)",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", latency_ms AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Error Rate %",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 8 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", error_rate_pct AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Anomaly Score vs Dynamic Threshold",
+      "description": "raw_score = -IsolationForest.score_samples(x); threshold is the per-host EWMA(μ,σ)+kσ band with a p95 floor guard (see services/detector/app/dynamic_threshold.py). An alert fires when score crosses threshold and the per-host cooldown allows it.",
+      "type": "timeseries",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 9 },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", host_id || ' score' AS \"metric\", raw_score AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) AND raw_score IS NOT NULL ORDER BY ts",
+          "rawQuery": true
+        },
+        {
+          "refId": "B",
+          "format": "time_series",
+          "rawSql": "SELECT ts AS \"time\", host_id || ' threshold' AS \"metric\", threshold AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) AND threshold IS NOT NULL ORDER BY ts",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Active Alerts (1h)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 0, "y": 17, "w": 6, "h": 4 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT count(*) AS \"value\" FROM alerts WHERE triggered_at > now() - interval '1 hour'",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Avg Agent Confidence (1h)",
+      "type": "stat",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 6, "y": 17, "w": 6, "h": 4 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT avg(confidence) AS \"value\" FROM agent_runs WHERE created_at > now() - interval '1 hour'",
+          "rawQuery": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Triggered Alerts + Agent Diagnosis",
+      "type": "table",
+      "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
+      "gridPos": { "x": 0, "y": 21, "w": 24, "h": 11 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "severity" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "critical": { "color": "red", "index": 0 } } },
+                  { "type": "value", "options": { "warning": { "color": "orange", "index": 1 } } }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT a.triggered_at AS \"time\", a.host_id, a.service_name, a.severity, a.status, round(a.raw_score::numeric, 3) AS score, round(a.threshold::numeric, 3) AS threshold, r.root_cause, r.proposed_fix, round(r.confidence::numeric, 2) AS confidence FROM alerts a LEFT JOIN LATERAL (SELECT * FROM agent_runs ar WHERE ar.alert_id = a.alert_id ORDER BY ar.created_at DESC LIMIT 1) r ON true WHERE $__timeFilter(a.triggered_at) AND a.host_id IN ($host) ORDER BY a.triggered_at DESC LIMIT 200",
+          "rawQuery": true
+        }
+      ]
+    }
+  ]
+}
