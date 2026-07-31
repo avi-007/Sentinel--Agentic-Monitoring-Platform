@@ -9,3 +9,9 @@ venv/
 pg-data/
 kafka-data/
 zk-data/
+
+# terraform
+deploy/aws/.terraform/
+deploy/aws/*.tfstate
+deploy/aws/*.tfstate.*
+deploy/aws/*.tfvars

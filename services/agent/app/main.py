@@ -26,7 +26,10 @@ log = structlog.get_logger(__name__)
 
 
 def make_handler(settings: AgentSettings, llm_client):
-    model_name = settings.openai_model if settings.llm_provider == "openai" else "mock"
+    model_name = {
+        "openai": settings.openai_model,
+        "openrouter": settings.openrouter_model,
+    }.get(settings.llm_provider, "mock")
 
     def handle(_key: str, payload: dict) -> None:
         alert = AlertEvent.model_validate(payload)
@@ -89,6 +92,8 @@ def main() -> None:
         settings.openai_model,
         settings.agent_request_timeout_seconds,
         settings.agent_mock_seed,
+        settings.openrouter_api_key,
+        settings.openrouter_model,
     )
 
     log.info("agent.started", provider=settings.llm_provider)

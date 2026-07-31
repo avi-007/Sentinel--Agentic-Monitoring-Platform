@@ -32,7 +32,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 24
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     networks: [sentinel-net]
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
@@ -67,7 +67,7 @@ services:
       - pg-data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432" # host 5433 to dodge a locally-running Postgres on 5432
     networks: [sentinel-net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sentinel} -d ${POSTGRES_DB:-sentinel}"]

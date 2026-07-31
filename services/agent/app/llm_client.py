@@ -46,12 +46,15 @@ class OpenAIClient:
     function calling. tool_calls_so_far is unused here — the full history is
     already encoded in `messages`; it exists only so MockLLMClient (which
     shares this interface) has an easy structured view of prior tool results.
+
+    Also used for OpenRouter (base_url override): OpenRouter's API is
+    OpenAI-compatible, so no separate client is needed.
     """
 
-    def __init__(self, api_key: str, model: str, timeout_seconds: float):
+    def __init__(self, api_key: str, model: str, timeout_seconds: float, base_url: Optional[str] = None):
         from openai import OpenAI  # imported lazily so mock-only runs don't need the package configured
 
-        self._client = OpenAI(api_key=api_key, timeout=timeout_seconds)
+        self._client = OpenAI(api_key=api_key, timeout=timeout_seconds, base_url=base_url)
         self.model = model
 
     def create_completion(
@@ -207,11 +210,32 @@ class MockLLMClient:
         return generic
 
 
-def build_llm_client(provider: str, openai_api_key: str, openai_model: str, timeout_seconds: float, mock_seed: int) -> LLMClient:
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
+
+def build_llm_client(
+    provider: str,
+    openai_api_key: str,
+    openai_model: str,
+    timeout_seconds: float,
+    mock_seed: int,
+    openrouter_api_key: str = "",
+    openrouter_model: str = "",
+) -> LLMClient:
     if provider == "openai":
         if not openai_api_key:
             raise RuntimeError("LLM_PROVIDER=openai but OPENAI_API_KEY is not set")
         log.info("agent.llm_provider", provider="openai", model=openai_model)
         return OpenAIClient(api_key=openai_api_key, model=openai_model, timeout_seconds=timeout_seconds)
+    if provider == "openrouter":
+        if not openrouter_api_key:
+            raise RuntimeError("LLM_PROVIDER=openrouter but OPENROUTER_API_KEY is not set")
+        log.info("agent.llm_provider", provider="openrouter", model=openrouter_model)
+        return OpenAIClient(
+            api_key=openrouter_api_key,
+            model=openrouter_model,
+            timeout_seconds=timeout_seconds,
+            base_url=OPENROUTER_BASE_URL,
+        )
     log.info("agent.llm_provider", provider="mock")
     return MockLLMClient(seed=mock_seed)
