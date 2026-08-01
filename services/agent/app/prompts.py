@@ -118,8 +118,6 @@ TOOL_SCHEMAS = [
                     "confidence": {
                         "type": "number",
                         "description": "Your confidence in this diagnosis, from 0.0 to 1.0.",
-                        "minimum": 0.0,
-                        "maximum": 1.0,
                     },
                     "severity_assessment": {
                         "type": "string",

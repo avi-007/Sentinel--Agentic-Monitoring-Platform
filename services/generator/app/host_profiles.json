@@ -1,0 +1,50 @@
+[
+  {
+    "host_id": "web-01",
+    "service_name": "web",
+    "seed": 1,
+    "phase_offset": 0.0,
+    "baseline": {"cpu_pct": 35.0, "mem_pct": 55.0, "latency_ms": 90.0, "error_rate_pct": 0.5},
+    "diurnal_amplitude": {"cpu_pct": 20.0, "mem_pct": 8.0, "latency_ms": 25.0, "error_rate_pct": 0.3}
+  },
+  {
+    "host_id": "web-02",
+    "service_name": "web",
+    "seed": 2,
+    "phase_offset": 0.3,
+    "baseline": {"cpu_pct": 32.0, "mem_pct": 52.0, "latency_ms": 85.0, "error_rate_pct": 0.4},
+    "diurnal_amplitude": {"cpu_pct": 18.0, "mem_pct": 7.0, "latency_ms": 22.0, "error_rate_pct": 0.25}
+  },
+  {
+    "host_id": "api-01",
+    "service_name": "api",
+    "seed": 3,
+    "phase_offset": 0.6,
+    "baseline": {"cpu_pct": 45.0, "mem_pct": 60.0, "latency_ms": 120.0, "error_rate_pct": 0.8},
+    "diurnal_amplitude": {"cpu_pct": 25.0, "mem_pct": 10.0, "latency_ms": 35.0, "error_rate_pct": 0.5}
+  },
+  {
+    "host_id": "api-02",
+    "service_name": "api",
+    "seed": 4,
+    "phase_offset": 0.9,
+    "baseline": {"cpu_pct": 42.0, "mem_pct": 58.0, "latency_ms": 115.0, "error_rate_pct": 0.7},
+    "diurnal_amplitude": {"cpu_pct": 24.0, "mem_pct": 9.0, "latency_ms": 32.0, "error_rate_pct": 0.45}
+  },
+  {
+    "host_id": "db-01",
+    "service_name": "db",
+    "seed": 5,
+    "phase_offset": 1.2,
+    "baseline": {"cpu_pct": 50.0, "mem_pct": 70.0, "latency_ms": 15.0, "error_rate_pct": 0.1},
+    "diurnal_amplitude": {"cpu_pct": 15.0, "mem_pct": 5.0, "latency_ms": 6.0, "error_rate_pct": 0.08}
+  },
+  {
+    "host_id": "cache-01",
+    "service_name": "cache",
+    "seed": 6,
+    "phase_offset": 1.5,
+    "baseline": {"cpu_pct": 20.0, "mem_pct": 65.0, "latency_ms": 3.0, "error_rate_pct": 0.05},
+    "diurnal_amplitude": {"cpu_pct": 10.0, "mem_pct": 6.0, "latency_ms": 1.5, "error_rate_pct": 0.04}
+  }
+]
