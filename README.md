@@ -9,7 +9,7 @@ investigates each alert and proposes a fix. Runs locally with
 
 ```
 generator  ->  Kafka(telemetry.raw)  ->  detector  ->  Kafka(alerts.triggered)  ->  agent
-(synthetic         IsolationForest + dynamic EWMA threshold      tool-calling LLM investigation
+(synthetic         IsolationForest + adaptive percentile threshold      tool-calling LLM investigation
  telemetry)         writes every event to Postgres `metrics`     writes `agent_runs`, updates alert status
 ```
 
@@ -20,15 +20,15 @@ streaming backbone between services.
 | Service | Role |
 |---|---|
 | `generator` | Simulates 6 hosts / 4 fake services with diurnal load + injected anomalies. |
-| `detector` | Per-host `IsolationForest` scoring + dynamic EWMA threshold (not a fixed cutoff) with a percentile floor and per-host alert cooldown. |
+| `detector` | Per-host `IsolationForest` scoring + adaptive percentile threshold (not a fixed cutoff) with per-host alert cooldown. |
 | `agent` | Multi-turn tool-calling loop (mocked tools: metrics, logs, runbook, deploy history) against GPT-4o or a free deterministic mock. |
 | `grafana` | Auto-provisioned dashboard — telemetry, score vs. threshold, alert feed. |
 
 ## Key design decisions
 
-- **Dynamic threshold**: `threshold = μ_ewma + k·σ_ewma`, floored at
-  `p95(recent scores)`, with a 60s per-host cooldown after each alert — see
-  [`dynamic_threshold.py`](services/detector/app/dynamic_threshold.py).
+- **Dynamic threshold**: `threshold = p95(recent scores)` per host, adapting
+  automatically as behavior shifts, with a 60s per-host cooldown after each
+  alert — see [`dynamic_threshold.py`](services/detector/app/dynamic_threshold.py).
 - **Mock-by-default LLM**: `LLM_PROVIDER=mock` walks the same tool-calling
   code path as real GPT-4o, so the whole pipeline demos for free.
 - **Hand-rolled tool loop**, no agent framework — see
@@ -103,7 +103,7 @@ Full list in [`.env.example`](.env.example). Highlights:
 |---|---|---|
 | `GEN_ANOMALY_INJECTION_RATE` | `0.02` | Per-host, per-tick odds of an injected anomaly. |
 | `DET_WARMUP_EVENTS` | `120` | Events buffered before first model fit. |
-| `DET_EWMA_ALPHA`, `DET_THRESHOLD_K` | `0.05`, `3.0` | Threshold band params. |
+| `DET_THRESHOLD_PERCENTILE` | `95` | Percentile of recent per-host scores used as the alert threshold. |
 | `LLM_PROVIDER` | `mock` | `mock` or `openai`. |
 | `AGENT_MAX_TOOL_TURNS` | `6` | Turns before forced diagnosis. |
 

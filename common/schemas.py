@@ -31,7 +31,7 @@ class InjectedAnomaly(BaseModel):
     """
 
     active: bool = False
-    type: Optional[Literal["spike", "sustained", "drift"]] = None
+    type: Optional[Literal["spike"]] = None
 
 
 class TelemetryEvent(BaseModel):

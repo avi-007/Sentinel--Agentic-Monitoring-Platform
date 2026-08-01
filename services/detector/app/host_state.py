@@ -1,7 +1,7 @@
 """Per-host in-memory state the detector maintains across the life of the
 process: rolling raw-metric buffer (for feature engineering), the current
-IsolationForest + its version, warm-up/training buffers, score history (for
-the dynamic threshold), and EWMA/cooldown state.
+IsolationForest + its version, warm-up/training buffers, and score
+history/cooldown state (for the dynamic threshold).
 
 All of this is deliberately in-memory only (no persistence across detector
 restarts) — a documented demo simplification; see README limitations.
@@ -37,9 +37,6 @@ class HostModelState:
     model_version: int = field(default=0, init=False)
 
     score_history: deque = field(init=False)
-    ewma_mean: float = field(default=0.0, init=False)
-    ewma_std: float = field(default=0.0, init=False)
-    ewma_initialized: bool = field(default=False, init=False)
 
     last_alert_time: Optional[datetime] = field(default=None, init=False)
 

@@ -1,35 +1,28 @@
-"""The adaptive threshold that replaces a static score cutoff.
+"""Adaptive per-host threshold — percentile based, nothing to memorize.
 
-Why not a static threshold: a fixed cutoff assumes a stationary anomaly-score
-distribution, but IsolationForest scores drift with (a) periodic retraining,
-(b) legitimate diurnal/seasonal load changes, and (c) heterogeneous per-host
-baseline noise — a naturally noisier host trips a single global cutoff
-constantly, a quiet host never trips a loose one. This module instead tracks a
-per-host, continuously-updating "normal" band and only fires on genuine
-deviation from *recent local* behavior.
+Why not a static threshold: a fixed score cutoff assumes every host behaves
+the same and never drifts, but scores drift with retraining, load changes,
+and different baseline noise per host — a noisy host trips a single global
+cutoff constantly, a quiet host never trips a loose one.
 
 Algorithm, per host, on raw_score = -model.score_samples(x) (larger = more anomalous):
 
-1. EWMA control band (Shewhart-style adaptive control limit):
-       mu_t    = alpha * score_t + (1 - alpha) * mu_{t-1}
-       sigma_t = sqrt(alpha * (score_t - mu_t)^2 + (1 - alpha) * sigma_{t-1}^2)
-       ewma_threshold_t = mu_t + k * sigma_t
+1. Keep the last `score_history_size` raw scores for this host.
+2. Threshold = the 95th percentile of that recent history. If a new score is
+   higher than 95% of what's been typical for this host lately, it's
+   anomalous. Adapts automatically as behavior shifts — no formulas to tune.
+3. Cooldown: once an alert is published for a host, suppress further
+   publications for DET_ALERT_COOLDOWN_SECONDS so one sustained incident
+   doesn't spam repeat alerts. Every event is still scored and written to
+   `metrics` regardless of cooldown.
 
-2. Percentile floor guard (prevents threshold collapse — and a false-positive
-   flood — during unusually calm stretches where sigma_t shrinks toward 0):
-       threshold_t = max(ewma_threshold_t, p95(recent raw scores))
-
-3. Hysteresis / cooldown: once an alert is *published* for a host, suppress
-   further alert publications for that host for DET_ALERT_COOLDOWN_SECONDS even
-   if the score stays above threshold, to avoid alert storms during one
-   sustained incident. Every event is still scored and written to `metrics`
-   regardless of cooldown — only the Kafka publish + `alerts` row insert are
-   throttled.
+Note: `ewma_mean`/`ewma_std` in ThresholdResult are legacy field names kept
+for DB/schema compatibility — they now hold a plain rolling mean/std of
+recent scores, for display only, not used in the threshold calculation.
 """
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -39,46 +32,38 @@ import numpy as np
 from .config import DetectorSettings
 from .host_state import HostModelState
 
+MIN_HISTORY_FOR_THRESHOLD = 10
+FALLBACK_THRESHOLD = 1e9  # not enough history yet — never alert during warm-up
+
 
 @dataclass
 class ThresholdResult:
     threshold: float
     ewma_mean: float
     ewma_std: float
-    is_anomaly: bool  # score > threshold, regardless of cooldown — written to every metrics row
-    severity: Optional[str]  # "warning" | "critical" | None
-    should_publish_alert: bool  # is_anomaly AND cooldown allows it
+    is_anomaly: bool
+    severity: Optional[str]
+    should_publish_alert: bool
 
 
 def evaluate(
     state: HostModelState, raw_score: float, settings: DetectorSettings, now: datetime
 ) -> ThresholdResult:
-    alpha = settings.det_ewma_alpha
-
-    if not state.ewma_initialized:
-        state.ewma_mean = raw_score
-        state.ewma_std = 0.0
-        state.ewma_initialized = True
-    else:
-        prev_mean = state.ewma_mean
-        state.ewma_mean = alpha * raw_score + (1 - alpha) * prev_mean
-        deviation_sq = (raw_score - state.ewma_mean) ** 2
-        state.ewma_std = math.sqrt(alpha * deviation_sq + (1 - alpha) * state.ewma_std**2)
-
     state.score_history.append(raw_score)
+    history = list(state.score_history)
 
-    ewma_threshold = state.ewma_mean + settings.det_threshold_k * state.ewma_std
-    if len(state.score_history) >= 10:
-        percentile_floor = float(np.percentile(list(state.score_history), settings.det_threshold_percentile))
+    if len(history) >= MIN_HISTORY_FOR_THRESHOLD:
+        threshold = float(np.percentile(history, settings.det_threshold_percentile))
     else:
-        percentile_floor = ewma_threshold
+        threshold = FALLBACK_THRESHOLD
 
-    threshold = max(ewma_threshold, percentile_floor)
+    mean = float(np.mean(history))
+    std = float(np.std(history))
     is_anomaly = raw_score > threshold
 
     severity: Optional[str] = None
     if is_anomaly:
-        severity = "critical" if raw_score > threshold + state.ewma_std else "warning"
+        severity = "critical" if raw_score > threshold + std else "warning"
 
     cooldown_active = (
         state.last_alert_time is not None
@@ -90,8 +75,8 @@ def evaluate(
 
     return ThresholdResult(
         threshold=threshold,
-        ewma_mean=state.ewma_mean,
-        ewma_std=state.ewma_std,
+        ewma_mean=mean,
+        ewma_std=std,
         is_anomaly=is_anomaly,
         severity=severity,
         should_publish_alert=should_publish_alert,
