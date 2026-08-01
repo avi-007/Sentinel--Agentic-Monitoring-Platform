@@ -31,7 +31,7 @@ class InjectedAnomaly(BaseModel):
     """
 
     active: bool = False
-    type: Optional[Literal["spike"]] = None
+    type: Optional[Literal["spike", "ramp"]] = None
 
 
 class TelemetryEvent(BaseModel):
@@ -61,3 +61,5 @@ class AlertEvent(BaseModel):
     severity: Literal["warning", "critical"]
     metric_snapshot: MetricSnapshot
     recent_metrics: list[MetricSnapshot] = Field(default_factory=list)
+    is_early_warning: bool = False
+    predicted_breach_minutes: Optional[float] = None

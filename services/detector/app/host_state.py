@@ -1,7 +1,8 @@
 """Per-host in-memory state the detector maintains across the life of the
 process: rolling raw-metric buffer (for feature engineering), the current
-IsolationForest + its version, warm-up/training buffers, and score
-history/cooldown state (for the dynamic threshold).
+IsolationForest + its version, warm-up/training buffers, score
+history/cooldown state (for the dynamic threshold), and a short recent-score
+trend window/cooldown state (for the early-warning forecast).
 
 All of this is deliberately in-memory only (no persistence across detector
 restarts) — a documented demo simplification; see README limitations.
@@ -24,6 +25,7 @@ class HostModelState:
     rolling_window: int
     train_window_size: int
     score_history_size: int
+    trend_window_size: int
 
     raw_buffer: deque = field(init=False)
     last_raw: Optional[dict] = field(default=None, init=False)
@@ -38,12 +40,16 @@ class HostModelState:
 
     score_history: deque = field(init=False)
 
+    trend_window: deque = field(init=False)  # (timestamp, raw_score) tuples
+
     last_alert_time: Optional[datetime] = field(default=None, init=False)
+    last_early_warning_time: Optional[datetime] = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.raw_buffer = deque(maxlen=self.rolling_window)
         self.train_window = deque(maxlen=self.train_window_size)
         self.score_history = deque(maxlen=self.score_history_size)
+        self.trend_window = deque(maxlen=self.trend_window_size)
 
     def recent_metric_snapshots(self) -> list[dict]:
         return list(self.raw_buffer)
@@ -52,10 +58,17 @@ class HostModelState:
 class HostStateRegistry:
     """Lazily creates and holds one HostModelState per host_id seen so far."""
 
-    def __init__(self, rolling_window: int, train_window_size: int, score_history_size: int):
+    def __init__(
+        self,
+        rolling_window: int,
+        train_window_size: int,
+        score_history_size: int,
+        trend_window_size: int,
+    ):
         self._rolling_window = rolling_window
         self._train_window_size = train_window_size
         self._score_history_size = score_history_size
+        self._trend_window_size = trend_window_size
         self._states: dict[str, HostModelState] = {}
 
     def get(self, host_id: str) -> HostModelState:
@@ -66,6 +79,7 @@ class HostStateRegistry:
                 rolling_window=self._rolling_window,
                 train_window_size=self._train_window_size,
                 score_history_size=self._score_history_size,
+                trend_window_size=self._trend_window_size,
             )
             self._states[host_id] = state
         return state

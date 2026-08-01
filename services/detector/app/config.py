@@ -11,4 +11,8 @@ class DetectorSettings(BaseServiceSettings):
     det_threshold_percentile: float = 95.0
     det_score_history_size: int = 200
     det_alert_cooldown_seconds: float = 60.0
+    det_trend_window_size: int = 10
+    det_trend_min_points: int = 5
+    det_trend_horizon_minutes: float = 20.0
+    det_trend_min_r_squared: float = 0.7
     detector_consumer_group: str = "sentinel-detector"

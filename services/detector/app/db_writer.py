@@ -35,6 +35,7 @@ def insert_metric_row(
     severity: Optional[str],
     model_version: Optional[int],
     injected_anomaly_type: Optional[str],
+    predicted_breach_minutes: Optional[float],
 ) -> int:
     row = db.fetch_one(
         """
@@ -42,12 +43,14 @@ def insert_metric_row(
             event_id, host_id, service_name, ts,
             cpu_pct, mem_pct, latency_ms, error_rate_pct,
             features, raw_score, ewma_mean, ewma_std, threshold,
-            is_anomaly, severity, model_version, injected_anomaly_type
+            is_anomaly, severity, model_version, injected_anomaly_type,
+            predicted_breach_minutes
         ) VALUES (
             %s, %s, %s, %s,
             %s, %s, %s, %s,
             %s, %s, %s, %s, %s,
-            %s, %s, %s, %s
+            %s, %s, %s, %s,
+            %s
         )
         RETURNING id
         """,
@@ -69,6 +72,7 @@ def insert_metric_row(
             severity,
             model_version,
             injected_anomaly_type,
+            predicted_breach_minutes,
         ),
     )
     return row["id"]
@@ -79,8 +83,9 @@ def insert_alert_row(alert: AlertEvent, metrics_id: int) -> None:
         """
         INSERT INTO alerts (
             alert_id, host_id, service_name, triggered_at,
-            raw_score, threshold, severity, metric_snapshot, metrics_id, status
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'new')
+            raw_score, threshold, severity, metric_snapshot, metrics_id, status,
+            is_early_warning, predicted_breach_minutes
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'new', %s, %s)
         """,
         (
             str(alert.alert_id),
@@ -92,6 +97,8 @@ def insert_alert_row(alert: AlertEvent, metrics_id: int) -> None:
             alert.severity,
             orjson.dumps(alert.metric_snapshot.model_dump()).decode("utf-8"),
             metrics_id,
+            alert.is_early_warning,
+            alert.predicted_breach_minutes,
         ),
     )
 

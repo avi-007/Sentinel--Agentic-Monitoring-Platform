@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS metrics (
     severity               TEXT,
     model_version          INTEGER,
     injected_anomaly_type  TEXT,
+    predicted_breach_minutes DOUBLE PRECISION,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_metrics_host_ts ON metrics (host_id, ts DESC);
@@ -42,6 +43,8 @@ CREATE TABLE IF NOT EXISTS alerts (
     metric_snapshot  JSONB NOT NULL,
     metrics_id       BIGINT REFERENCES metrics(id),
     status           TEXT NOT NULL DEFAULT 'new', -- new|investigating|diagnosed|error
+    is_early_warning BOOLEAN NOT NULL DEFAULT false,
+    predicted_breach_minutes DOUBLE PRECISION,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );

@@ -12,7 +12,7 @@ from common.kafka_utils import make_consumer, make_producer, consume_json_foreve
 from common.logging_conf import configure_logging
 from common.schemas import AlertEvent, MetricSnapshot, TelemetryEvent
 
-from . import db_writer, dynamic_threshold, model_store
+from . import db_writer, dynamic_threshold, model_store, trend_forecast
 from .config import DetectorSettings
 from .feature_engineering import compute_feature_vector
 from .host_state import HostStateRegistry
@@ -50,10 +50,14 @@ def make_handler(settings: DetectorSettings, registry: HostStateRegistry, produc
                 severity=None,
                 model_version=None,
                 injected_anomaly_type=injected_type,
+                predicted_breach_minutes=None,
             )
             return
 
         result = dynamic_threshold.evaluate(state, raw_score, settings, now=event.timestamp)
+        predicted_breach_minutes = trend_forecast.evaluate(
+            state, raw_score, result.threshold, result.is_anomaly, event.timestamp, settings
+        )
 
         metrics_id = db_writer.insert_metric_row(
             event_id=event.event_id,
@@ -70,6 +74,7 @@ def make_handler(settings: DetectorSettings, registry: HostStateRegistry, produc
             severity=result.severity,
             model_version=state.model_version,
             injected_anomaly_type=injected_type,
+            predicted_breach_minutes=predicted_breach_minutes,
         )
 
         if result.should_publish_alert:
@@ -87,6 +92,31 @@ def make_handler(settings: DetectorSettings, registry: HostStateRegistry, produc
             )
             db_writer.insert_alert_row(alert, metrics_id)
             db_writer.publish_alert(producer, settings.topic_alerts_triggered, alert)
+
+        if predicted_breach_minutes is not None:
+            cooldown_active = (
+                state.last_early_warning_time is not None
+                and (event.timestamp - state.last_early_warning_time).total_seconds()
+                < settings.det_alert_cooldown_seconds
+            )
+            if not cooldown_active:
+                early_warning = AlertEvent(
+                    host_id=event.host_id,
+                    service_name=event.service_name,
+                    triggered_at=event.timestamp,
+                    raw_score=raw_score,
+                    threshold=result.threshold,
+                    ewma_mean=result.ewma_mean,
+                    ewma_std=result.ewma_std,
+                    severity="warning",
+                    metric_snapshot=event.metrics,
+                    recent_metrics=[MetricSnapshot(**m) for m in state.recent_metric_snapshots()],
+                    is_early_warning=True,
+                    predicted_breach_minutes=predicted_breach_minutes,
+                )
+                state.last_early_warning_time = event.timestamp
+                db_writer.insert_alert_row(early_warning, metrics_id)
+                db_writer.publish_alert(producer, settings.topic_alerts_triggered, early_warning)
 
     return handle
 
@@ -109,6 +139,7 @@ def main() -> None:
         rolling_window=settings.det_rolling_window,
         train_window_size=settings.det_train_window_size,
         score_history_size=settings.det_score_history_size,
+        trend_window_size=settings.det_trend_window_size,
     )
 
     log.info("detector.started", warmup_events=settings.det_warmup_events)
