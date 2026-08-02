@@ -7,10 +7,22 @@ investigates each alert and proposes a fix. Runs locally with
 
 ## Architecture
 
-```
-generator  ->  Kafka(telemetry.raw)  ->  detector  ->  Kafka(alerts.triggered)  ->  agent
-(synthetic         IsolationForest + adaptive percentile threshold      tool-calling LLM investigation
- telemetry)         writes every event to Postgres `metrics`     writes `agent_runs`, updates alert status
+```mermaid
+flowchart LR
+    G["generator<br/>synthetic telemetry"] --> T1
+
+    subgraph K["Kafka"]
+        T1["telemetry.raw"]
+        T2["alerts.triggered"]
+    end
+
+    T1 --> D["detector<br/>IsolationForest +<br/>adaptive percentile threshold"]
+    D --> T2
+    T2 --> A["agent<br/>tool-calling LLM investigation"]
+
+    D -. "metrics" .-> PG[("Postgres")]
+    A -. "agent_runs,<br/>alert status" .-> PG
+    PG --> GF["Grafana"]
 ```
 
 Postgres is the single system of record (`hosts`, `metrics`, `alerts`,
@@ -37,6 +49,10 @@ streaming backbone between services.
   directly by both the write path and Grafana.
 - **Alert ownership**: detector inserts the `alerts` row (status `new`); the
   agent only ever updates its status — avoids create/race ambiguity.
+- **Early-warning prediction**: alongside the reactive threshold alert, the
+  detector fits a trend line over recent (smoothed) anomaly scores and, if
+  rising, predicts minutes-to-breach before the threshold is actually
+  crossed — see [`trend_forecast.py`](services/detector/app/trend_forecast.py).
 
 ## Running locally
 
@@ -104,7 +120,8 @@ Full list in [`.env.example`](.env.example). Highlights:
 | `GEN_ANOMALY_INJECTION_RATE` | `0.02` | Per-host, per-tick odds of an injected anomaly. |
 | `DET_WARMUP_EVENTS` | `120` | Events buffered before first model fit. |
 | `DET_THRESHOLD_PERCENTILE` | `95` | Percentile of recent per-host scores used as the alert threshold. |
-| `LLM_PROVIDER` | `mock` | `mock` or `openai`. |
+| `DET_TREND_HORIZON_MINUTES` | `20` | Max lookahead for early-warning breach predictions. |
+| `LLM_PROVIDER` | `mock` | `mock`, `openai`, or `openrouter`. |
 | `AGENT_MAX_TOOL_TURNS` | `6` | Turns before forced diagnosis. |
 
 ## Limitations
@@ -112,7 +129,3 @@ Full list in [`.env.example`](.env.example). Highlights:
 Local demo only — no auth/TLS, single-broker Kafka, no Kubernetes.
 `search_logs` / `get_deploy_history` are synthetic fixtures. Detector model
 state is in-memory (no persistence). No schema registry.
-
-## License
-
-MIT.
