@@ -5,7 +5,9 @@ history/cooldown state (for the dynamic threshold), and a short recent-score
 trend window/cooldown state (for the early-warning forecast).
 
 All of this is deliberately in-memory only (no persistence across detector
-restarts) — a documented demo simplification; see README limitations.
+restarts) — a fresh per-host warm-up on restart is cheap enough that
+persisting model/threshold state hasn't been worth the added complexity;
+see README limitations.
 """
 
 from __future__ import annotations

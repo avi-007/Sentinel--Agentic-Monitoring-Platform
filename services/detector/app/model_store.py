@@ -2,8 +2,8 @@
 DET_WARMUP_EVENTS feature vectors, then periodic sliding-window retraining
 every DET_RETRAIN_INTERVAL_EVENTS new events (replacing the model atomically,
 bumping model_version). No holdout/rollback validation is performed on refit —
-a documented demo simplification; the dynamic threshold layer (dynamic_threshold.py)
-is the actual guard against false positives, not the model boundary itself.
+the dynamic threshold layer (dynamic_threshold.py) is the actual guard against
+false positives, not the model boundary itself.
 """
 
 from __future__ import annotations

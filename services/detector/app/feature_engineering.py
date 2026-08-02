@@ -1,8 +1,8 @@
 """Turns a raw metric snapshot into a small, explainable 12-dim feature vector:
 4 raw values, 4 rolling z-scores, 4 tick-over-tick deltas. Deliberately kept
-small rather than a large engineered feature set — easy to reason about (and
-explain) for a portfolio project, and plenty for IsolationForest to work with
-at this data volume.
+small rather than a large engineered feature set — a compact, interpretable
+feature vector is easier to validate and debug than a large opaque one, and
+sufficient for IsolationForest to work with at this data volume.
 
 Z-scores are computed against the rolling window *before* the current point is
 appended to it, so a single extreme point doesn't dilute its own baseline.

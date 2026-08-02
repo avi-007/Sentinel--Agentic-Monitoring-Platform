@@ -7,9 +7,10 @@ For each metric, at simulated time t:
              + noise(t)                                              # independent jitter
 
 Each metric jitters independently — day/night shape plus random noise,
-nothing more. Kept deliberately simple: the interesting engineering in this
-project lives in the detector's adaptive threshold and the agent's
-tool-calling loop, not in how realistic the fake telemetry looks.
+nothing more. Kept deliberately simple — the generator's job is to produce
+plausible input data, not to be the most sophisticated part of the system;
+that complexity belongs in the detector's adaptive threshold and the agent's
+investigation logic, where it actually earns its keep.
 """
 
 from __future__ import annotations

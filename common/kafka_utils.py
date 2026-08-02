@@ -20,7 +20,7 @@ def make_producer(bootstrap_servers: str) -> Producer:
     return Producer(
         {
             "bootstrap.servers": bootstrap_servers,
-            # small linger to batch a bit without materially delaying a demo
+            # small linger to batch a bit without adding noticeable end-to-end latency
             "linger.ms": 50,
             "acks": "all",
         }
