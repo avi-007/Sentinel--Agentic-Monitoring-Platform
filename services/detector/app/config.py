@@ -15,4 +15,5 @@ class DetectorSettings(BaseServiceSettings):
     det_trend_min_points: int = 5
     det_trend_horizon_minutes: float = 20.0
     det_trend_min_r_squared: float = 0.7
+    det_trend_smoothing_window: int = 3
     detector_consumer_group: str = "sentinel-detector"

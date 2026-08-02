@@ -33,12 +33,11 @@ from .config import DetectorSettings
 from .host_state import HostModelState
 
 MIN_HISTORY_FOR_THRESHOLD = 10
-FALLBACK_THRESHOLD = 1e9  # not enough history yet — never alert during warm-up
 
 
 @dataclass
 class ThresholdResult:
-    threshold: float
+    threshold: Optional[float]  # None until MIN_HISTORY_FOR_THRESHOLD scores are in — never alert during that gap
     ewma_mean: float
     ewma_std: float
     is_anomaly: bool
@@ -52,14 +51,13 @@ def evaluate(
     state.score_history.append(raw_score)
     history = list(state.score_history)
 
+    threshold: Optional[float] = None
     if len(history) >= MIN_HISTORY_FOR_THRESHOLD:
         threshold = float(np.percentile(history, settings.det_threshold_percentile))
-    else:
-        threshold = FALLBACK_THRESHOLD
 
     mean = float(np.mean(history))
     std = float(np.std(history))
-    is_anomaly = raw_score > threshold
+    is_anomaly = threshold is not None and raw_score > threshold
 
     severity: Optional[str] = None
     if is_anomaly:
