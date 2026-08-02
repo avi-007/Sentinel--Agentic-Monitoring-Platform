@@ -30,12 +30,20 @@
       "type": "timeseries",
       "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
       "gridPos": { "x": 0, "y": 0, "w": 6, "h": 8 },
-      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", cpu_pct AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawSql": "SELECT to_timestamp(floor(extract(epoch FROM ts) / 15) * 15) AS \"time\", host_id AS \"metric\", avg(cpu_pct) AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) GROUP BY 1, host_id ORDER BY 1",
           "rawQuery": true
         }
       ]
@@ -46,12 +54,20 @@
       "type": "timeseries",
       "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 8 },
-      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", mem_pct AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawSql": "SELECT to_timestamp(floor(extract(epoch FROM ts) / 15) * 15) AS \"time\", host_id AS \"metric\", avg(mem_pct) AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) GROUP BY 1, host_id ORDER BY 1",
           "rawQuery": true
         }
       ]
@@ -62,12 +78,19 @@
       "type": "timeseries",
       "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
       "gridPos": { "x": 12, "y": 0, "w": 6, "h": 8 },
-      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", latency_ms AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawSql": "SELECT to_timestamp(floor(extract(epoch FROM ts) / 15) * 15) AS \"time\", host_id AS \"metric\", avg(latency_ms) AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) GROUP BY 1, host_id ORDER BY 1",
           "rawQuery": true
         }
       ]
@@ -78,12 +101,19 @@
       "type": "timeseries",
       "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
       "gridPos": { "x": 18, "y": 0, "w": 6, "h": 8 },
-      "fieldConfig": { "defaults": { "unit": "percent", "min": 0 }, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT ts AS \"time\", host_id AS \"metric\", error_rate_pct AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) ORDER BY ts",
+          "rawSql": "SELECT to_timestamp(floor(extract(epoch FROM ts) / 15) * 15) AS \"time\", host_id AS \"metric\", avg(error_rate_pct) AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) GROUP BY 1, host_id ORDER BY 1",
           "rawQuery": true
         }
       ]
@@ -95,18 +125,23 @@
       "type": "timeseries",
       "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
       "gridPos": { "x": 0, "y": 8, "w": 24, "h": 9 },
-      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never" }
+        },
+        "overrides": []
+      },
       "targets": [
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT ts AS \"time\", host_id || ' score' AS \"metric\", raw_score AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) AND raw_score IS NOT NULL ORDER BY ts",
+          "rawSql": "SELECT to_timestamp(floor(extract(epoch FROM ts) / 15) * 15) AS \"time\", host_id || ' score' AS \"metric\", avg(raw_score) AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) AND raw_score IS NOT NULL GROUP BY 1, host_id ORDER BY 1",
           "rawQuery": true
         },
         {
           "refId": "B",
           "format": "time_series",
-          "rawSql": "SELECT ts AS \"time\", host_id || ' threshold' AS \"metric\", threshold AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) AND threshold IS NOT NULL ORDER BY ts",
+          "rawSql": "SELECT to_timestamp(floor(extract(epoch FROM ts) / 15) * 15) AS \"time\", host_id || ' threshold' AS \"metric\", avg(threshold) AS \"value\" FROM metrics WHERE $__timeFilter(ts) AND host_id IN ($host) AND threshold IS NOT NULL GROUP BY 1, host_id ORDER BY 1",
           "rawQuery": true
         }
       ]
@@ -148,10 +183,22 @@
       "title": "Triggered Alerts + Agent Diagnosis",
       "type": "table",
       "datasource": { "type": "postgres", "uid": "sentinel-postgres" },
-      "gridPos": { "x": 0, "y": 21, "w": 24, "h": 11 },
+      "gridPos": { "x": 0, "y": 21, "w": 24, "h": 22 },
       "fieldConfig": {
         "defaults": {},
         "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "time" },
+            "properties": [{ "id": "custom.width", "value": 180 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "host_id" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "service_name" },
+            "properties": [{ "id": "custom.width", "value": 90 }]
+          },
           {
             "matcher": { "id": "byName", "options": "severity" },
             "properties": [
@@ -162,7 +209,34 @@
                   { "type": "value", "options": { "warning": { "color": "orange", "index": 1 } } }
                 ]
               },
-              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } },
+              { "id": "custom.width", "value": 90 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [{ "id": "custom.width", "value": 100 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "score" },
+            "properties": [{ "id": "custom.width", "value": 80 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "threshold" },
+            "properties": [{ "id": "custom.width", "value": 80 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "root_cause" },
+            "properties": [
+              { "id": "custom.width", "value": 350 },
+              { "id": "custom.cellOptions", "value": { "type": "auto", "wrapText": true } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "proposed_fix" },
+            "properties": [
+              { "id": "custom.width", "value": 350 },
+              { "id": "custom.cellOptions", "value": { "type": "auto", "wrapText": true } }
             ]
           }
         ]

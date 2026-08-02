@@ -1,5 +1,7 @@
 """Injects occasional, self-reverting anomalies on top of a host's normal
-signal: two kinds, both perturbing latency_ms and error_rate_pct.
+signal: two shapes (spike, ramp), each applied to one of two metric pairs
+chosen independently — (latency_ms, error_rate_pct) for a request-path
+incident, or (cpu_pct, mem_pct) for a resource-pressure incident.
 
 - spike: a short (1-2 tick) multiplicative jump that decays back to baseline.
 - ramp: a gradual multiplicative climb from 1.0x up to a peak (2.0-3.5x) over
@@ -9,39 +11,57 @@ signal: two kinds, both perturbing latency_ms and error_rate_pct.
 
 Each host has independent injection rolls gated by `injection_rate` per
 tick, plus a cooldown after any anomaly so events don't overlap or chain
-back-to-back. Kind (spike vs ramp) is chosen ~50/50 on the same roll — no
-second independent probability.
+back-to-back. Kind (spike vs ramp) and metric pair (request-path vs
+resource-pressure) are each chosen ~50/50 on the same trigger roll — no
+second independent probability gate.
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-ANOMALY_METRICS = ("latency_ms", "error_rate_pct")
+from .host_profiles import METRIC_BOUNDS
+
+REQUEST_METRICS = ("latency_ms", "error_rate_pct")
+RESOURCE_METRICS = ("cpu_pct", "mem_pct")
+
+
+def _clip(metrics: dict[str, float], keys: tuple[str, ...]) -> None:
+    # cpu_pct/mem_pct sit at 20-70% baseline with only a 100% ceiling, so a
+    # spike/ramp multiplier can push them past METRIC_BOUNDS (invalid
+    # >100% readings) even though the same multiplier never troubled
+    # latency_ms/error_rate_pct, which have much more headroom below their
+    # own bounds.
+    for m in keys:
+        lo, hi = METRIC_BOUNDS[m]
+        metrics[m] = min(max(metrics[m], lo), hi)
 
 
 class _ActiveSpike:
-    def __init__(self, rng: np.random.Generator):
+    def __init__(self, rng: np.random.Generator, metrics: tuple[str, ...]):
         # 1-2 tick jump: peak, then a partial-decay tick before reverting.
         peak = rng.uniform(2.5, 4.5)
         self.multipliers = [peak, 1.0 + (peak - 1.0) * 0.35]
         self.tick_index = 0
+        self.metrics = metrics
 
     def apply(self, metrics: dict[str, float]) -> tuple[dict[str, float], bool]:
         """Returns (perturbed_metrics, is_finished)."""
         out = dict(metrics)
         mult = self.multipliers[self.tick_index]
-        for m in ANOMALY_METRICS:
+        for m in self.metrics:
             out[m] = metrics[m] * mult
+        _clip(out, self.metrics)
         self.tick_index += 1
         return out, self.tick_index >= len(self.multipliers)
 
 
 class _ActiveRamp:
-    def __init__(self, rng: np.random.Generator):
+    def __init__(self, rng: np.random.Generator, metrics: tuple[str, ...]):
         self.duration = int(rng.integers(40, 81))
         self.peak = rng.uniform(2.0, 3.5)
         self.tick_index = 0
+        self.metrics = metrics
 
     def apply(self, metrics: dict[str, float]) -> tuple[dict[str, float], bool]:
         """Returns (perturbed_metrics, is_finished). Reverts instantly after
@@ -49,8 +69,9 @@ class _ActiveRamp:
         out = dict(metrics)
         frac = min((self.tick_index + 1) / self.duration, 1.0)
         mult = 1.0 + (self.peak - 1.0) * frac
-        for m in ANOMALY_METRICS:
+        for m in self.metrics:
             out[m] = metrics[m] * mult
+        _clip(out, self.metrics)
         self.tick_index += 1
         return out, self.tick_index >= self.duration
 
@@ -84,7 +105,8 @@ class AnomalyInjector:
 
         if self.rng.random() < self.injection_rate:
             kind = "spike" if self.rng.random() < 0.5 else "ramp"
-            self._active = _KIND_TO_CLASS[kind](self.rng)
+            metrics = REQUEST_METRICS if self.rng.random() < 0.5 else RESOURCE_METRICS
+            self._active = _KIND_TO_CLASS[kind](self.rng, metrics)
             self._active_kind = kind
             perturbed, finished = self._active.apply(base_metrics)
             if finished:
